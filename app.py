@@ -7,23 +7,30 @@ import random
 import string
 
 # --- CONFIGURACIÓN ---
-st.set_page_config(page_title="Hazard Corp - Sistema de Ventas", layout="wide")
+st.set_page_config(page_title="Hazard Corp - Terminal", layout="wide")
 
-# --- DATABASE ---
+# --- DATABASE (Versión 2 para evitar errores de columnas faltantes) ---
 def init_db():
-    conn = sqlite3.connect('ventas_hazard.db')
+    # Cambiamos el nombre a v2 para forzar una base de datos limpia
+    conn = sqlite3.connect('ventas_v2.db')
     c = conn.cursor()
-    # Tabla de Ventas (Maestro)
+    # Tabla de Ventas (Aseguramos que todas las columnas existan)
     c.execute('''CREATE TABLE IF NOT EXISTS ventas 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, folio TEXT, cliente TEXT, fecha TEXT, iva_porcentaje REAL, total REAL)''')
-    # Tabla de Detalles (Productos)
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  folio TEXT, 
+                  cliente TEXT, 
+                  fecha TEXT, 
+                  iva_porcentaje REAL, 
+                  total REAL)''')
+    # Tabla de Detalles
     c.execute('''CREATE TABLE IF NOT EXISTS detalles 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, venta_id INTEGER, concepto TEXT, cantidad REAL, precio REAL)''')
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  venta_id INTEGER, 
+                  concepto TEXT, 
+                  cantidad REAL, 
+                  precio REAL)''')
     conn.commit()
     conn.close()
-
-def generar_folio():
-    return f"HZ-{''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))}"
 
 init_db()
 
