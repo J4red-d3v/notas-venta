@@ -96,6 +96,9 @@ def login_ui():
     st.markdown("<br><br>", unsafe_allow_html=True)
     with st.container():
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            st.image("Hazard.png", use_container_width=True)
         st.title("🔐 Acceso Hazard Corp")
         user = st.text_input("Usuario")
         pw = st.text_input("Contraseña", type="password")
