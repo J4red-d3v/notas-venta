@@ -277,7 +277,7 @@ st.subheader("Servicios/Productos")
 
 # Inicializar servicios si no existen
 if 'servicios_temp' not in st.session_state:
-    st.session_state.servicios_temp = [{'concepto': '', 'cantidad': 1, 'precio': 0}]
+    st.session_state.servicios_temp = [{'concepto': '', 'cantidad': 1, 'precio': 0.0}]
 
 servicios = []
 for i, svc in enumerate(st.session_state.servicios_temp):
@@ -287,7 +287,7 @@ for i, svc in enumerate(st.session_state.servicios_temp):
     with cols[1]:
         svc['cantidad'] = st.number_input("Cant.", value=svc['cantidad'], min_value=1, key=f"cantidad_{i}", label_visibility="collapsed")
     with cols[2]:
-        svc['precio'] = st.number_input("Precio", value=svc['precio'], min_value=0.0, format="%.2f", key=f"precio_{i}", label_visibility="collapsed")
+        svc['precio'] = st.number_input("Precio", value=float(svc['precio']), min_value=0.0, format="%.2f", key=f"precio_{i}", label_visibility="collapsed")
     with cols[3]:
         if len(st.session_state.servicios_temp) > 1:
             if st.button("X", key=f"del_{i}"):
@@ -295,10 +295,10 @@ for i, svc in enumerate(st.session_state.servicios_temp):
                 st.rerun()
 
 if st.button("+ Agregar servicio"):
-    st.session_state.servicios_temp.append({'concepto': '', 'cantidad': 1, 'precio': 0})
+    st.session_state.servicios_temp.append({'concepto': '', 'cantidad': 1, 'precio': 0.0})
     st.rerun()
 
-iva_porcentaje = st.number_input("IVA (%)", value=16, min_value=0, max_value=100)
+iva_porcentaje = st.number_input("IVA (%)", value=16.0, min_value=0.0, max_value=100.0, format="%.1f")
 
 # ========== BOTÓN GENERAR ==========
 st.divider()
