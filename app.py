@@ -5,281 +5,198 @@ from datetime import datetime
 import sqlite3
 import random
 import string
-import pandas as pd
-import hashlib
+import os
 
-# --- 1. CONFIGURACIÓN DE SEGURIDAD Y ESTILO ---
-st.set_page_config(page_title="Hazard Corp | Enterprise Portal", layout="wide", page_icon="🔒")
+# --- 1. CONFIGURACIÓN DE PÁGINA Y ESTILO ---
+st.set_page_config(page_title="Hazard Corp | Sistema Pro", layout="wide", page_icon="🚀")
 
-# Estilo de Interfaz de Alta Seguridad
+# Estilo para que se vea más profesional
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono&family=Inter:wght@400;600&display=swap');
-    
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-    .stApp { background-color: #0B0E11; }
-    
-    /* Login Box */
-    .login-container {
-        max-width: 400px;
-        margin: auto;
-        padding: 40px;
-        background: #161B22;
-        border-radius: 10px;
-        border: 1px solid #30363D;
-    }
-
-    .header-status {
-        background: #161B22;
-        padding: 15px;
-        border-radius: 8px;
-        border-left: 5px solid #10B981;
-        margin-bottom: 20px;
-    }
-    
-    div[data-testid="stMetricValue"] { font-family: 'JetBrains Mono', monospace; color: #10B981; }
+    .main { background-color: #f5f7f9; }
+    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; }
+    .stDownloadButton>button { background-color: #059669 !important; color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. GESTIÓN DE BASE DE DATOS Y USUARIOS ---
-DB_NAME = 'hazard_enterprise_v3.db'
-
-def make_hashes(password):
-    return hashlib.sha256(str.encode(password)).hexdigest()
-
-def check_hashes(password, hashed_text):
-    if make_hashes(password) == hashed_text:
-        return hashed_text
-    return False
-
-def init_db(reset=False):
-    conn = sqlite3.connect(DB_NAME)
+# --- 2. BASE DE DATOS (NUEVA VERSIÓN V5) ---
+def init_db():
+    # Cambiamos el nombre del archivo para forzar una estructura limpia y sin errores
+    conn = sqlite3.connect('hazard_v5_final.db')
     c = conn.cursor()
-    if reset:
-        c.execute("DROP TABLE IF EXISTS detalles")
-        c.execute("DROP TABLE IF EXISTS ventas")
-    
-    # Tabla de Usuarios
-    c.execute('''CREATE TABLE IF NOT EXISTS usuarios 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, role TEXT)''')
-    
-    # Tabla de Ventas
+    # Tabla Maestra: Datos generales de la venta
     c.execute('''CREATE TABLE IF NOT EXISTS ventas 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, folio TEXT, cliente TEXT, fecha TEXT, iva_porc REAL, total REAL, vendedor TEXT)''')
-    
-    # Tabla de Detalles
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  folio TEXT, 
+                  cliente TEXT, 
+                  fecha TEXT, 
+                  iva_porc REAL, 
+                  total REAL)''')
+    # Tabla de Detalles: Cada producto por separado
     c.execute('''CREATE TABLE IF NOT EXISTS detalles 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, venta_id INTEGER, descripcion TEXT, cant REAL, precio REAL, subtotal REAL,
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  venta_id INTEGER, 
+                  descripcion TEXT, 
+                  cant REAL, 
+                  precio REAL, 
+                  subtotal REAL,
                   FOREIGN KEY(venta_id) REFERENCES ventas(id))''')
-    
-    # Crear usuarios por defecto si no existen
-    c.execute("SELECT * FROM usuarios WHERE username='admin'")
-    if not c.fetchone():
-        c.execute("INSERT INTO usuarios (username, password, role) VALUES (?,?,?)", 
-                  ('admin', make_hashes('admin123'), 'Admin'))
-        c.execute("INSERT INTO usuarios (username, password, role) VALUES (?,?,?)", 
-                  ('vendedor', make_hashes('ventas123'), 'Vendedor'))
-        
     conn.commit()
     conn.close()
 
 def generar_folio():
-    return f"HZ-{datetime.now().strftime('%y%m')}-{''.join(random.choice(string.digits) for _ in range(4))}"
+    return f"HZ-{''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))}"
 
 init_db()
 
-# --- 3. LÓGICA DE AUTENTICACIÓN ---
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
+# --- 3. ESTADO DE LA APLICACIÓN (CARRITO) ---
+if 'carrito' not in st.session_state:
+    st.session_state.carrito = []
 
-def login_ui():
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    with st.container():
-        st.markdown('<div class="login-container">', unsafe_allow_html=True)
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            st.image("Hazard.png", use_container_width=True)
-        st.title("🔐 Acceso Hazard Corp")
-        user = st.text_input("Usuario")
-        pw = st.text_input("Contraseña", type="password")
-        if st.button("Ingresar Sistema", use_container_width=True):
-            conn = sqlite3.connect(DB_NAME)
-            c = conn.cursor()
-            c.execute("SELECT password, role FROM usuarios WHERE username=?", (user,))
-            res = c.fetchone()
-            conn.close()
-            
-            if res and check_hashes(pw, res[0]):
-                st.session_state.logged_in = True
-                st.session_state.username = user
-                st.session_state.role = res[1]
-                st.rerun()
-            else:
-                st.error("Credenciales incorrectas")
-        st.markdown('</div>', unsafe_allow_html=True)
+# --- 4. CONFIGURACIÓN DE EMPRESA (SIDEBAR) ---
+with st.sidebar:
+    st.title("⚙️ Configuración")
+    nombre_empresa = st.text_input("Nombre del Negocio", value="Hazard Corp")
+    logo_file = st.file_uploader("Cargar Logo", type=["png", "jpg", "jpeg"])
+    logo_data = logo_file.getvalue() if logo_file else None
+    
+    if st.button("🗑️ Limpiar Formulario"):
+        st.session_state.carrito = []
+        st.rerun()
 
-# --- 4. MOTOR DE PDF PROFESIONAL ---
+# --- 5. GENERADOR DE PDF ---
 class PDF(FPDF):
     def header(self):
-        if 'logo_data' in st.session_state and st.session_state.logo_data:
-            with open("temp_logo.png", "wb") as f: f.write(st.session_state.logo_data)
-            self.image("temp_logo.png", 10, 8, 30)
-        self.set_font('Arial', 'B', 14)
-        self.cell(0, 8, st.session_state.nombre_empresa.upper(), ln=True, align='R')
-        self.set_font('Arial', '', 8)
-        self.cell(0, 4, f"RFC: {st.session_state.rfc_empresa}", ln=True, align='R')
-        self.multi_cell(0, 4, st.session_state.direccion, align='R')
-        self.cell(0, 4, f"Tel: {st.session_state.telefono}", ln=True, align='R')
-        self.ln(12)
+        if logo_data:
+            with open("temp_logo.png", "wb") as f: f.write(logo_data)
+            self.image("temp_logo.png", 10, 8, 35)
+        self.set_font('Arial', 'B', 16)
+        self.cell(0, 10, nombre_empresa.upper(), ln=True, align='R')
+        self.set_font('Arial', '', 10)
+        self.cell(0, 5, "DOCUMENTO DE VENTA", ln=True, align='R')
+        self.ln(20)
 
-# --- 5. APLICACIÓN PRINCIPAL (SI ESTÁ LOGUEADO) ---
-if not st.session_state.logged_in:
-    login_ui()
-else:
-    # Sidebar de Configuración y Usuario
-    with st.sidebar:
-        st.markdown(f"### 👤 {st.session_state.username}")
-        st.info(f"Rol: {st.session_state.role}")
-        
-        if st.button("Cerrar Sesión"):
-            st.session_state.logged_in = False
-            st.rerun()
-            
-        st.divider()
-        st.markdown("### Identidad Corporativa")
-        logo_file = st.file_uploader("Actualizar Logo", type=["png", "jpg", "jpeg"])
-        st.session_state.logo_data = logo_file.getvalue() if logo_file else None
-        
-        st.session_state.nombre_empresa = st.text_input("Razón Social", value="Hazard Corp")
-        st.session_state.rfc_empresa = st.text_input("RFC", value="MODD9009069Q1")
-        st.session_state.direccion = st.text_area("Domicilio Fiscal", value="Héroe de Nacozari #904, Col. Ampliación Bellavista C.P. 35058, Gómez Palacio Dgo.")
-        st.session_state.telefono = st.text_input("Contacto", value="87-18-45-71-17")
+def exportar_pdf(info_venta, items):
+    pdf = PDF()
+    pdf.add_page()
+    
+    # Datos de la Venta
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(100, 10, f"CLIENTE: {info_venta['cliente']}")
+    pdf.set_font('Arial', '', 10)
+    pdf.cell(0, 10, f"FECHA: {info_venta['fecha']}", align='R', ln=True)
+    pdf.cell(0, 10, f"FOLIO: {info_venta['folio']}", align='R', ln=True)
+    pdf.ln(5)
 
-        if st.session_state.role == "Admin":
-            st.divider()
-            if st.button("⚠️ LIMPIAR BASE DE DATOS"):
-                init_db(reset=True)
-                st.warning("Sistema reiniciado.")
+    # Tabla de productos
+    pdf.set_fill_color(0, 0, 0)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font('Arial', 'B', 10)
+    pdf.cell(90, 10, " DESCRIPCION", 1, 0, 'L', True)
+    pdf.cell(20, 10, "CANT", 1, 0, 'C', True)
+    pdf.cell(40, 10, "PRECIO U.", 1, 0, 'C', True)
+    pdf.cell(40, 10, "TOTAL", 1, 1, 'C', True)
+
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font('Arial', '', 10)
+    subtotal_gral = 0
+    for it in items:
+        pdf.cell(90, 10, f" {it['desc']}", 1)
+        pdf.cell(20, 10, f"{it['cant']}", 1, 0, 'C')
+        pdf.cell(40, 10, f"${it['prec']:,.2f}", 1, 0, 'C')
+        linea = it['cant'] * it['prec']
+        pdf.cell(40, 10, f"${linea:,.2f}", 1, 1, 'C')
+        subtotal_gral += linea
+
+    # Cálculos Finales
+    pdf.ln(5)
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(150, 10, "SUBTOTAL:", 0, 0, 'R')
+    pdf.cell(40, 10, f"${subtotal_gral:,.2f}", 0, 1, 'R')
+    
+    iva_monto = subtotal_gral * (info_venta['iva'] / 100)
+    pdf.cell(150, 10, f"IVA ({info_venta['iva']}%):", 0, 0, 'R')
+    pdf.cell(40, 10, f"${iva_monto:,.2f}", 0, 1, 'R')
+    
+    pdf.set_text_color(20, 60, 180)
+    pdf.set_font('Arial', 'B', 14)
+    pdf.cell(150, 15, "TOTAL NETO:", 0, 0, 'R')
+    pdf.cell(40, 15, f"${subtotal_gral + iva_monto:,.2f}", 0, 1, 'R')
+    
+    return pdf.output(dest='S').encode('latin-1')
+
+# --- 6. INTERFAZ ---
+st.title(f"🚀 {nombre_empresa} | Terminal de Ventas")
+
+tab1, tab2 = st.tabs(["🛒 Generar Venta", "📂 Panel de Rastreo"])
+
+with tab1:
+    with st.container(border=True):
+        c1, c2, c3 = st.columns([2, 1, 1])
+        cliente = c1.text_input("Nombre del Cliente")
+        fecha_v = c2.date_input("Fecha")
+        iva_p = c3.number_input("IVA % (Manual)", min_value=0.0, value=0.0)
+
+    st.subheader("Agregar Items")
+    with st.expander("Añadir producto/servicio", expanded=True):
+        col_d, col_c, col_p = st.columns([3, 1, 1])
+        desc = col_d.text_input("Descripción")
+        cant = col_c.number_input("Cant.", min_value=0.1, value=1.0)
+        prec = col_p.number_input("Precio Unitario", min_value=0.0)
+        
+        if st.button("➕ Agregar a la Lista"):
+            if desc and prec > 0:
+                st.session_state.carrito.append({"desc": desc, "cant": cant, "prec": prec})
                 st.rerun()
 
-    # Dashboard Principal
-    st.markdown(f"""
-        <div class="header-status">
-            <strong>Panel de Control:</strong> {st.session_state.nombre_empresa} | 
-            <strong>Usuario Activo:</strong> {st.session_state.username} ({st.session_state.role})
-        </div>
-    """, unsafe_allow_html=True)
-
-    tab1, tab2, tab3 = st.tabs(["📝 Generar Cotización/Venta", "🔍 Historial de Folios", "📊 Reporte Global (Admin)"])
-
-    with tab1:
-        c1, c2, c3 = st.columns([2.5, 1, 1])
-        cliente = c1.text_input("Cliente / Razón Social")
-        fecha_v = c2.date_input("Fecha de Emisión")
-        iva_p = c3.number_input("IVA %", value=16.0)
-
-        st.markdown("#### Configuración de Partidas")
-        sub_t1, sub_t2 = st.tabs(["Equipamiento", "Cableado Estructurado"])
+    if st.session_state.carrito:
+        st.markdown("### Resumen de Venta")
+        st.table(st.session_state.carrito)
         
-        if 'carrito' not in st.session_state: st.session_state.carrito = []
+        sub = sum(p['cant'] * p['prec'] for p in st.session_state.carrito)
+        total_v = sub * (1 + (iva_p/100))
+        
+        st.metric("TOTAL A COBRAR", f"${total_v:,.2f}")
 
-        with sub_t1:
-            col_d, col_c, col_p = st.columns([3, 1, 1])
-            desc_e = col_d.text_input("Descripción del Producto", placeholder="Ej. Kit 4 Cámaras 1080p")
-            cant_e = col_c.number_input("Cantidad", min_value=1.0, value=1.0, key="c_eq")
-            prec_e = col_p.number_input("Precio Unitario", min_value=0.0, key="p_eq")
-            if st.button("Agregar Equipo"):
-                if desc_e and prec_e > 0:
-                    st.session_state.carrito.append({"desc": desc_e, "cant": cant_e, "prec": prec_e})
-                    st.rerun()
-
-        with sub_t2:
-            col_cd, col_cm, col_cp = st.columns([3, 1, 1])
-            cable_tipo = col_cd.selectbox("Tipo de Cable", ["Cable UTP Cat5e Ext.", "Cable UTP Cat6 Int.", "Coaxial RG59 + Corriente"])
-            metros = col_cm.number_input("Metros", min_value=1.0, value=1.0)
-            precio_m = col_cp.number_input("Precio por Metro", value=18.0)
-            if st.button("Agregar Cableado"):
-                st.session_state.carrito.append({"desc": f"{cable_tipo} ({metros}m)", "cant": metros, "prec": precio_m})
-                st.rerun()
-
-        if st.session_state.carrito:
-            st.table(st.session_state.carrito)
-            subt = sum(p['cant'] * p['prec'] for p in st.session_state.carrito)
-            total_v = subt * (1 + (iva_p/100))
-            st.metric("TOTAL NETO", f"${total_v:,.2f} MXN")
-
-            if st.button("✅ REGISTRAR Y GENERAR FOLIO", type="primary"):
-                if cliente:
-                    folio = generar_folio()
-                    conn = sqlite3.connect(DB_NAME)
-                    cur = conn.cursor()
-                    cur.execute("INSERT INTO ventas (folio, cliente, fecha, iva_porc, total, vendedor) VALUES (?,?,?,?,?,?)",
-                              (folio, cliente, str(fecha_v), iva_p, total_v, st.session_state.username))
-                    v_id = cur.lastrowid
-                    for p in st.session_state.carrito:
-                        cur.execute("INSERT INTO detalles (venta_id, descripcion, cant, precio, subtotal) VALUES (?,?,?,?,?)",
-                                  (v_id, p['desc'], p['cant'], p['prec'], p['cant']*p['prec']))
-                    conn.commit(); conn.close()
-                    st.session_state.carrito = []
-                    st.success(f"Registro exitoso. Folio: {folio}")
-                    st.balloons()
-                else: st.error("Falta el nombre del cliente.")
-
-    with tab2:
-        search = st.text_input("Buscar por Folio o Cliente...")
-        conn = sqlite3.connect(DB_NAME)
-        # Los vendedores solo ven lo suyo, el admin ve todo
-        if st.session_state.role == "Admin":
-            query = "SELECT * FROM ventas WHERE (folio LIKE ? OR cliente LIKE ?) ORDER BY id DESC"
-            params = (f'%{search}%', f'%{search}%')
-        else:
-            query = "SELECT * FROM ventas WHERE vendedor=? AND (folio LIKE ? OR cliente LIKE ?) ORDER BY id DESC"
-            params = (st.session_state.username, f'%{search}%', f'%{search}%')
-            
-        ventas_list = pd.read_sql_query(query, conn, params=params)
-        conn.close()
-
-        for index, row in ventas_list.iterrows():
-            with st.expander(f"FOLIO: {row['folio']} | {row['cliente']} | Vendedor: {row['vendedor']}"):
-                conn = sqlite3.connect(DB_NAME)
-                items = pd.read_sql_query("SELECT descripcion, cant, precio FROM detalles WHERE venta_id=?", conn, params=(row['id'],))
+        if st.button("🔥 REGISTRAR VENTA FINAL"):
+            if cliente:
+                folio = generar_folio()
+                conn = sqlite3.connect('hazard_v5_final.db')
+                cur = conn.cursor()
+                # Guardar Venta
+                cur.execute("INSERT INTO ventas (folio, cliente, fecha, iva_porc, total) VALUES (?,?,?,?,?)",
+                          (folio, cliente, fecha_v.strftime("%Y-%m-%d"), iva_p, total_v))
+                v_id = cur.lastrowid
+                # Guardar Detalles
+                for p in st.session_state.carrito:
+                    cur.execute("INSERT INTO detalles (venta_id, descripcion, cant, precio, subtotal) VALUES (?,?,?,?,?)",
+                              (v_id, p['desc'], p['cant'], p['prec'], p['cant']*p['prec']))
+                conn.commit()
                 conn.close()
-                st.table(items)
-                
-                # Botón de PDF
-                items_list = items.to_dict('records')
-                # Adaptación para el generador de PDF (renombrar llaves)
-                for i in items_list: i['desc'] = i['descripcion']; i['prec'] = i['precio']
-                
-                pdf = PDF()
-                pdf.add_page()
-                pdf.set_font('Arial', 'B', 10); pdf.cell(0, 10, f"CLIENTE: {row['cliente']}", ln=True)
-                pdf.cell(0, 10, f"FOLIO: {row['folio']} | FECHA: {row['fecha']}", ln=True)
-                pdf.ln(5)
-                # ... (resto de lógica de tabla PDF similar a la anterior)
-                # Por brevedad en este ejemplo, se asume la función de exportar_pdf interna
-                
-    with tab3:
-        if st.session_state.role == "Admin":
-            st.markdown("#### Inteligencia de Negocio")
-            conn = sqlite3.connect(DB_NAME)
-            query_global = """
-                SELECT v.folio, v.fecha, v.cliente, v.vendedor, d.descripcion, d.cant, d.precio, d.subtotal
-                FROM detalles d JOIN ventas v ON d.venta_id = v.id ORDER BY v.id DESC
-            """
-            df_global = pd.read_sql_query(query_global, conn)
-            conn.close()
-            
-            if not df_global.empty:
-                st.dataframe(df_global, use_container_width=True, hide_index=True)
-                # Exportación Excel
-                buffer = io.BytesIO()
-                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                    df_global.to_excel(writer, index=False, sheet_name='Reporte_Master')
-                st.download_button("Descargar Reporte Maestro (Excel)", buffer.getvalue(), 
-                                 f"Reporte_Hazard_{datetime.now().strftime('%Y%m%d')}.xlsx", 
-                                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                st.session_state.carrito = []
+                st.success(f"Venta Guardada con éxito. Folio: {folio}")
+                st.balloons()
             else:
-                st.info("Sin registros globales.")
-        else:
-            st.warning("Área restringida para Administradores.")
+                st.error("Por favor, ingresa el nombre del cliente.")
+
+with tab2:
+    st.subheader("Buscador de Folios")
+    busqueda = st.text_input("Buscar por Folio o Cliente")
+    
+    conn = sqlite3.connect('hazard_v5_final.db')
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM ventas WHERE folio LIKE ? OR cliente LIKE ? ORDER BY id DESC", (f'%{busqueda}%', f'%{busqueda}%'))
+    ventas = cur.fetchall()
+    
+    for v in ventas:
+        with st.expander(f"FOLIO: {v[1]} | {v[2]} | Total: ${v[5]:,.2f}"):
+            cur.execute("SELECT descripcion, cant, precio FROM detalles WHERE venta_id = ?", (v[0],))
+            items_db = cur.fetchall()
+            listado_pdf = []
+            for item in items_db:
+                st.write(f"- {item[1]}x {item[0]} | ${item[2]:,.2f}")
+                listado_pdf.append({"desc": item[0], "cant": item[1], "prec": item[2]})
+            
+            pdf_bytes = exportar_pdf({"folio": v[1], "cliente": v[2], "fecha": v[3], "iva": v[4]}, listado_pdf)
+            st.download_button(f"📥 Descargar Nota {v[1]}", pdf_bytes, f"Nota_{v[1]}.pdf", "application/pdf", key=f"dl_{v[1]}")
+    conn.close()
