@@ -19,8 +19,7 @@ from reportlab.lib.enums import TA_RIGHT, TA_CENTER
 # ========== CONFIGURACIÓN DE PÁGINA ==========
 st.set_page_config(
     page_title="Notas de Venta",
-    page_icon="🧾",
-    layout="mobile"
+    page_icon="🧾"
 )
 
 # ========== ESTADOS DE SESIÓN ==========
@@ -144,14 +143,6 @@ def generar_pdf(nota, logo_base64, nombre_negocio):
         spaceAfter=4
     )
 
-    bold_style = ParagraphStyle(
-        'Bold',
-        parent=styles['Normal'],
-        fontSize=11,
-        fontName='Helvetica-Bold',
-        spaceAfter=4
-    )
-
     fecha_formato = nota['fecha'].strftime('%d de %B del %Y') if isinstance(nota['fecha'], (datetime, date)) else nota['fecha']
 
     client_info = f"""
@@ -204,14 +195,6 @@ def generar_pdf(nota, logo_base64, nombre_negocio):
     iva = nota['iva']
     total = nota['total']
 
-    totales_style = ParagraphStyle(
-        'Totales',
-        parent=styles['Normal'],
-        fontSize=12,
-        alignment=TA_RIGHT,
-        spaceAfter=4
-    )
-
     totales_data = [
         ['', '', 'Subtotal:', f"${subtotal:,.2f}"],
         ['', '', f'IVA ({nota["iva_porcentaje"]}%):', f"${iva:,.2f}"],
@@ -239,7 +222,7 @@ def generar_pdf(nota, logo_base64, nombre_negocio):
         textColor=colors.gray,
         alignment=TA_CENTER
     )
-    elements.append(Paragraph("Documento generado automáticamente - Gracias por su preferencia", footer_style))
+    elements.append(Paragraph("Documento generado automaticamente - Gracias por su preferencia", footer_style))
 
     doc.build(elements)
     buffer.seek(0)
@@ -251,14 +234,14 @@ cargar_notas()
 
 # ========== SIDEBAR - CONFIGURACIÓN ==========
 with st.sidebar:
-    st.header("⚙️ Configuración")
+    st.header("Configuracion")
 
     # Logo upload
     st.subheader("Logo del negocio")
     logo_file = st.file_uploader("Cargar logo (PNG/JPG)", type=['png', 'jpg', 'jpeg'], key="logo_uploader")
     if logo_file:
         save_logo(logo_file)
-        st.success("Logo guardado ✓")
+        st.success("Logo guardado")
 
     if st.session_state.logo_base64:
         st.image("logo.png", width=150)
@@ -275,10 +258,10 @@ with st.sidebar:
     )
     if st.button("Guardar nombre"):
         guardar_config(nombre_input)
-        st.success("✓ Nombre guardado")
+        st.success("Nombre guardado")
 
 # ========== TÍTULO ==========
-st.title("🧾 Notas de Venta")
+st.title("Notas de Venta")
 st.markdown(f"**Negocio:** {st.session_state.nombre_negocio}")
 
 # ========== FORMULARIO NUEVA NOTA ==========
@@ -286,7 +269,7 @@ st.header("Nueva Nota")
 
 col1, col2 = st.columns(2)
 with col1:
-    cliente = st.text_input("Nombre del cliente *", placeholder="Juan Pérez")
+    cliente = st.text_input("Nombre del cliente *", placeholder="Juan Perez")
 with col2:
     fecha = st.date_input("Fecha", value=datetime.now())
 
@@ -307,11 +290,11 @@ for i, svc in enumerate(st.session_state.servicios_temp):
         svc['precio'] = st.number_input("Precio", value=svc['precio'], min_value=0.0, format="%.2f", key=f"precio_{i}", label_visibility="collapsed")
     with cols[3]:
         if len(st.session_state.servicios_temp) > 1:
-            if st.button("🗑️", key=f"del_{i}"):
+            if st.button("X", key=f"del_{i}"):
                 del st.session_state.servicios_temp[i]
                 st.rerun()
 
-if st.button("➕ Agregar servicio"):
+if st.button("+ Agregar servicio"):
     st.session_state.servicios_temp.append({'concepto': '', 'cantidad': 1, 'precio': 0})
     st.rerun()
 
@@ -320,16 +303,16 @@ iva_porcentaje = st.number_input("IVA (%)", value=16, min_value=0, max_value=100
 # ========== BOTÓN GENERAR ==========
 st.divider()
 
-if st.button("📄 Generar Nota de Venta", type="primary", use_container_width=True):
+if st.button("Generar Nota de Venta", type="primary", use_container_width=True):
     # Validar
     if not cliente:
-        st.error("⚠️ Ingresa el nombre del cliente")
+        st.error("Ingresa el nombre del cliente")
     else:
         # Filtrar servicios vacíos
         servicios_validos = [s for s in st.session_state.servicios_temp if s['concepto'].strip() and s['precio'] > 0]
 
         if not servicios_validos:
-            st.error("⚠️ Agrega al menos un servicio con precio")
+            st.error("Agrega al menos un servicio con precio")
         else:
             # Calcular totales
             subtotal = sum(s['cantidad'] * s['precio'] for s in servicios_validos)
@@ -355,10 +338,10 @@ if st.button("📄 Generar Nota de Venta", type="primary", use_container_width=T
             # Generar PDF
             pdf_buffer = generar_pdf(nota, st.session_state.logo_base64, st.session_state.nombre_negocio)
 
-            st.success(f"✅ Nota #{nota['numero']} creada!")
+            st.success(f"Nota #{nota['numero']} creada!")
 
             # Mostrar preview
-            st.markdown("### 📋 Preview")
+            st.markdown("### Preview")
             cols_preview = st.columns([1, 1, 1, 1])
             headers = ['Cant.', 'Concepto', 'P.Unit.', 'Importe']
             for i, h in enumerate(headers):
@@ -378,23 +361,23 @@ if st.button("📄 Generar Nota de Venta", type="primary", use_container_width=T
 
             # Descargar PDF
             st.download_button(
-                "📥 Descargar PDF",
+                "Descargar PDF",
                 pdf_buffer,
                 file_name=f"Nota_{nota['numero']}_{cliente}.pdf",
                 mime="application/pdf",
                 type="secondary"
             )
 
-            # Compartir (solo funciona en móvil)
-            if st.button("📱 Compartir", type="secondary"):
-                st.info("📲 En móvil: Usa el botón de compartir del navegador")
+            # Compartir (solo funciona en movil)
+            if st.button("Compartir", type="secondary"):
+                st.info("En movil: Usa el boton de compartir del navegador")
 
             # Limpiar formulario
             st.session_state.servicios_temp = [{'concepto': '', 'cantidad': 1, 'precio': 0}]
 
 # ========== HISTORIAL ==========
 st.divider()
-st.header("📜 Historial de Notas")
+st.header("Historial de Notas")
 
 if st.session_state.notas:
     # Filtro por semana
@@ -405,14 +388,14 @@ if st.session_state.notas:
     ] or st.session_state.notas[-5:]  # Si no hay de esta semana, mostrar últimos 5
 
     for nota in reversed(notas_semanales):
-        with st.expander(f"📄 Nota #{nota['numero']} - {nota['cliente']} - ${nota['total']:,.2f}"):
+        with st.expander(f"Nota #{nota['numero']} - {nota['cliente']} - ${nota['total']:,.2f}"):
             col_info1, col_info2 = st.columns(2)
             col_info1.write(f"**Cliente:** {nota['cliente']}")
             col_info2.write(f"**Fecha:** {nota['fecha']}")
 
             st.write("**Servicios:**")
             for svc in nota['servicios']:
-                st.write(f"  • {svc['cantidad']}x {svc['concepto']} - ${svc['cantidad'] * svc['precio']:,.2f}")
+                st.write(f"  - {svc['cantidad']}x {svc['concepto']} - ${svc['cantidad'] * svc['precio']:,.2f}")
 
             st.write(f"**Subtotal:** ${nota['subtotal']:,.2f}")
             st.write(f"**IVA ({nota['iva_porcentaje']}%):** ${nota['iva']:,.2f}")
@@ -421,20 +404,20 @@ if st.session_state.notas:
             # Regenerar PDF
             pdf = generar_pdf(nota, st.session_state.logo_base64, st.session_state.nombre_negocio)
             st.download_button(
-                "📥 Descargar PDF",
+                "Descargar PDF",
                 pdf,
                 file_name=f"Nota_{nota['numero']}_{nota['cliente']}.pdf",
                 mime="application/pdf"
             )
 
             # Eliminar
-            if st.button(f"🗑️ Eliminar nota #{nota['numero']}", key=f"del_nota_{nota['numero']}"):
+            if st.button(f"Eliminar nota #{nota['numero']}", key=f"del_nota_{nota['numero']}"):
                 st.session_state.notas = [n for n in st.session_state.notas if n['numero'] != nota['numero']]
                 guardar_notas()
                 st.rerun()
 else:
-    st.info("📝 No hay notas guardadas. Crea tu primera nota arriba.")
+    st.info("No hay notas guardadas. Crea tu primera nota arriba.")
 
 # ========== FOOTER ==========
 st.divider()
-st.caption("🧾 App de Notas de Venta - Creado con Streamlit")
+st.caption("App de Notas de Venta - Creado con Streamlit")
