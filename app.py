@@ -8,6 +8,7 @@ import string
 import pandas as pd
 import hashlib
 import time
+import os
 
 # --- 1. CONFIGURACIÓN DE SEGURIDAD Y ESTILO MEJORADA ---
 st.set_page_config(page_title="Hazard Corp | Enterprise Portal", layout="wide", page_icon="🔒")
@@ -138,6 +139,13 @@ st.markdown("""
         border: 3px solid #10B98130;
         border-top: 3px solid #10B981;
     }
+    
+    /* Ajuste para logo en login */
+    .login-logo-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -207,13 +215,13 @@ def login_ui():
     with st.container():
         st.markdown('<div class="login-container">', unsafe_allow_html=True)
         
-        # Logo y título
-        col1, col2, col3 = st.columns([1, 2, 1])
-        with col2:
-            try:
-                st.image("Hazard.png", use_container_width=True)
-            except:
-                st.markdown("<div style='text-align: center; color: #10B981; font-size: 24px; font-weight: bold; margin-bottom: 20px;'>HAZARD CORP</div>", unsafe_allow_html=True)
+        # Logo y título - Corregido el problema del cuadro sobre el logo
+        st.markdown('<div class="login-logo-container">', unsafe_allow_html=True)
+        try:
+            st.image("Hazard.png", width=150)
+        except:
+            st.markdown("<div style='text-align: center; color: #10B981; font-size: 24px; font-weight: bold; margin-bottom: 20px;'>HAZARD CORP</div>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
         
         st.markdown('<div class="login-title">Enterprise Portal</div>', unsafe_allow_html=True)
         st.markdown('<div class="login-subtitle">Sistema de Gestión Comercial y Seguridad</div>', unsafe_allow_html=True)
@@ -257,19 +265,228 @@ def login_ui():
             </div>
         """, unsafe_allow_html=True)
 
-# --- 4. MOTOR DE PDF PROFESIONAL ---
+# --- 4. MOTOR DE PDF PROFESIONAL MEJORADO ---
 class PDF(FPDF):
     def header(self):
+        # Logo de la empresa
         if 'logo_data' in st.session_state and st.session_state.logo_data:
-            with open("temp_logo.png", "wb") as f: f.write(st.session_state.logo_data)
-            self.image("temp_logo.png", 10, 8, 30)
-        self.set_font('Arial', 'B', 14)
-        self.cell(0, 8, st.session_state.nombre_empresa.upper(), ln=True, align='R')
-        self.set_font('Arial', '', 8)
+            try:
+                with open("temp_logo.png", "wb") as f: 
+                    f.write(st.session_state.logo_data)
+                self.image("temp_logo.png", 10, 8, 30)
+            except:
+                # Si hay error con el logo, mostrar texto
+                self.set_font('Arial', 'B', 16)
+                self.cell(30, 10, "HAZARD", ln=0)
+                self.set_font('Arial', '', 10)
+                self.cell(0, 10, "CORP", ln=1)
+        else:
+            # Logo por defecto como texto
+            self.set_font('Arial', 'B', 16)
+            self.cell(30, 10, "HAZARD", ln=0)
+            self.set_font('Arial', '', 10)
+            self.cell(0, 10, "CORP", ln=1)
+        
+        # Información de la empresa
+        self.set_font('Arial', 'B', 10)
+        self.cell(0, 5, st.session_state.nombre_empresa.upper(), ln=True, align='R')
+        self.set_f font('Arial', '', 8)
         self.cell(0, 4, f"RFC: {st.session_state.rfc_empresa}", ln=True, align='R')
         self.multi_cell(0, 4, st.session_state.direccion, align='R')
         self.cell(0, 4, f"Tel: {st.session_state.telefono}", ln=True, align='R')
-        self.ln(12)
+        
+        # Línea separadora
+        self.set_draw_color(16, 185, 129)
+        self.set_line_width(0.5)
+        self.line(10, 30, 200, 30)
+        self.ln(10)
+
+    def footer(self):
+        # Posición a 1.5 cm desde el fondo
+        self.set_y(-15)
+        # Estilo de fuente para el pie de página
+        self.set_font('Arial', 'I', 8)
+        # Color de texto
+        self.set_text_color(128, 128, 128)
+        # Número de página
+        self.cell(0, 10, f'Página {self.page_no()}/{{nb}}', 0, 0, 'C')
+        
+        # Información de seguridad
+        self.set_y(-25)
+        self.set_font('Arial', '', 7)
+        self.cell(0, 5, "Este documento es una representación legal de la transacción realizada.", 0, 0, 'C')
+        self.ln(3)
+        self.cell(0, 5, "Cualquier modificación invalida su autenticidad.", 0, 0, 'C')
+
+    def add_title(self, title):
+        # Título del documento
+        self.set_font('Arial', 'B', 16)
+        self.set_text_color(16, 185, 129)
+        self.cell(0, 10, title, 0, 1, 'C')
+        self.set_text_color(0, 0, 0)
+        self.ln(5)
+
+    def add_client_info(self, cliente, folio, fecha, vendedor):
+        # Información del cliente
+        self.set_font('Arial', 'B', 10)
+        self.cell(40, 6, 'CLIENTE:', 0, 0)
+        self.set_font('Arial', '', 10)
+       极速赛车开奖直播
+        self.cell(0, 6, cliente, 0, 1)
+        
+        self.set_font('Arial', 'B', 10)
+        self极速赛车开奖直播.cell(40, 6, 'FOLIO:', 0, 0)
+        self.set_font('Arial', '', 10)
+        self.cell(60, 6, folio, 0, 0)
+        
+        self.set_font('Arial', '极速赛车开奖直播B', 10)
+        self.cell(30, 6, 'FECHA:', 0, 0)
+        self.set_font('Arial', '', 10)
+        self.cell(0, 6, fecha, 0, 1)
+        
+        self.set_font('Arial', 'B', 10)
+        self.cell(40, 6, 'VENDEDOR:', 0, 0)
+        self.set_font('Arial', '', 10)
+        self.cell(0, 6, vended极速赛车开奖直播or, 0, 1)
+        
+        self.ln(8)
+
+    def add_items_table(self, items, iva_porc):
+        # Encabezado de la tabla
+        self.set_fill_color(16, 185, 129)
+        self.set_text_color(255, 255, 255)
+        self.set_font('Arial', 'B', 10)
+        
+        # Columnas
+        self.cell(100, 8, 'DESCRIPCIÓN', 1, 极速赛车开奖直播0, 'C', True)
+        self.cell(25, 8极速赛车开奖直播, 'CANTIDAD', 1, 0, 'C', True)
+        self.cell(30, 8, 'PRECIO UNIT.', 1, 0, 'C', True)
+        self.cell(35, 8, 'SUBTOTAL', 1, 1, 'C', True)
+        
+        # Restablecer colores y fuente para los items
+        self.set_fill_color(255, 255, 255)
+        self.set_text_color(0, 0, 0)
+        self.set_font('Arial', '', 10)
+        
+        # Datos de la tabla
+        fill = False
+        subtotal = 0
+        
+        for item in items:
+            # Alternar color de fondo para mejor lectura
+            if fill:
+                self.set_fill_color(240, 240, 240)
+            else:
+                self.set_fill_color(255, 255, 255)
+            
+            # Descripción (puede necesitar múltiples líneas)
+            desc_height = 6
+            desc = item['desc']
+            # Calcular si la descripción necesita más de una línea
+            if len(desc) > 40:
+                desc_lines = self.split_string(desc, 40)
+                desc_height = 6 * len(desc_lines)
+            
+            # Ajustar la posición Y si es necesario
+            if self.get_y() + desc_height > 270:  # Evitar desbordamiento de página
+                self.add_page()
+                # Volver a dibujar encabezado de tabla
+                self.set_fill_color(16, 185, 129)
+                self.set_text极速赛车开奖直播_color(255, 255, 255)
+                self.set_font('Arial', 'B', 10)
+                self.cell(100, 8, 'DESCRIPCIÓN', 1, 0, 'C', True)
+                self.cell(25, 8, 'CANTIDAD', 1, 0, 'C', True)
+                self.cell(30, 8, 'PRECIO UNIT.', 极速赛车开奖直播1, 0, 'C', True)
+                self.c极速赛车开奖直播ell(35, 8, 'SUBTOTAL', 1, 1, '极速赛车开奖直播C', True)
+                self.set_fill_color(240, 240, 240 if fill else 255)
+                self.set_text_color(0, 0, 0)
+                self.set_font('Arial', '', 10)
+            
+            # Dibujar celda de descripción
+            self.multi_cell(100, 6, desc, 1, 'L', fill)
+            x = self.get_x()
+            y = self.get_y()
+            
+            # Guardar posición para las otras celdas
+            self.set_xy(x + 100, y - desc_height)
+            
+            # Cantidad
+            self.cell(25, desc_height, str(item['cant']), 1, 0, 'C', fill)
+            
+            # Precio unitario
+            self.cell(30, desc_height, f"${item['prec']:,.2f}", 1, 0, 'R', fill)
+            
+            # Subtotal
+            item_subtotal = item['cant'] * item['prec']
+            self.cell(35, desc_height, f"${item_subtotal:,.2极速赛车开奖直播f}", 1, 1, 'R', fill)
+            
+            subtotal += item_subtotal
+            fill = not fill
+        
+        # Totales
+        self.set_font('Arial', 'B', 10)
+        self.cell(155, 8, 'SUBTOTAL:', 0, 0, 'R')
+        self.set_font('Arial', '', 10)
+        self.cell(35极速赛车开奖直播, 8, f"${subtotal:,.2f}", 0, 1, 'R')
+        
+        iva = subtotal * (iva_porc / 100)
+        self.set_font('Arial', 'B', 10)
+        self.cell(155, 8, f'IVA ({iva_porc}%):', 0, 0, 'R')
+        self.set_font('Arial', '', 10)
+        self.cell(35, 8, f"${iva:,.2f}", 0, 1, 'R')
+        
+        total = subtotal + iva
+        self.set_font('Arial', 'B', 12)
+        self.cell(155, 10, 'TOTAL:', 0, 0, 'R')
+        self.set_font('Arial', 'B', 12)
+        self.cell(35, 10, f"${total:,.2f}", 0, 1, 'R')
+        
+        self.ln(10)
+        
+        # Notas
+        self.set_font('极速赛车开奖直播Arial', 'I', 8)
+        self.multi_cell(0, 5, "Nota: Todos los precios están en pesos mexicanos. Este documento es válido como factura para efectos fiscales.")
+        
+        # Sello de recibido
+        self.set_y(-40)
+        self.set_font('Arial', '', 8)
+        self.cell(0, 5, "_________________________________________", 0, 1, 'C')
+        self.cell(0, 5, "RECIBIDO CONFORME", 0, 1极速赛车开奖直播, 'C')
+    
+    def split_string(self, text, max_width):
+        # Dividir texto en líneas que no excedan el ancho máximo
+        words = text.split()
+        lines = []
+        current_line = []
+        
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            if self.get_string_width(test_line) < max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        
+        if current_line:
+            lines.append(' '.join(current_line))
+            
+        return lines
+
+def generar_pdf(venta_id, cliente, folio, fecha, vendedor, items, iva_porc):
+    # Crear instancia de PDF
+    pdf = PDF()
+    pdf.alias_nb_pages()  # Para el número total de páginas en el pie
+    pdf.add_page()
+    
+    # Añadir contenido
+    pdf.add_title("COMPROBANTE DE VENTA")
+    pdf.add_client_info(cliente, folio, fecha, vendedor)
+    pdf.add_items_table(items, iva_porc)
+    
+    # Guardar PDF en bytes
+    pdf_bytes = pdf.output(dest='S').encode('latin1')
+    return pdf_bytes
 
 # --- 5. APLICACIÓN PRINCIPAL (SI ESTÁ LOGUEADO) ---
 if not st.session_state.logged_in:
@@ -279,7 +496,7 @@ else:
     with st.sidebar:
         # Información de usuario
         st.markdown(f"""
-            <div style='background: linear-gradient(90deg, #10B98120 0%, transparent 100%); 
+            <div style='background: linear-gradient(90deg, #10B98120 极速赛车开奖直播0%, transparent 100%); 
                         padding: 16px; border-radius: 8px; margin-bottom: 24px;'>
                 <div style='font-size: 18px; font-weight: 600; color: #10B981;'>👤 {st.session_state.username}</div>
                 <div style='font-size: 14px; color: #8B949E;'>Rol: {st.session_state.role}</div>
@@ -326,7 +543,7 @@ else:
     st.markdown(f"""
         <div class="header-status">
             <span style='font-size: 18px; font-weight: 600; color: #10B981;'>Panel de Control</span><br>
-            <span style='color: #C9D1D9;'>{st.session_state.nombre_empresa} | Usuario: {st.session_state.username} ({st.session_state.role})</span>
+           极速赛车开奖直播<span style='color: #C9D1D9;'>{st.session_state.nombre_empresa} | Usuario: {st.session_state.username} ({st.session_state.role})</span>
         </div>
     """, unsafe_allow_html=True)
 
@@ -334,7 +551,7 @@ else:
 
     with tab1:
         # Formulario de venta/cotización
-        c1, c2, c3 = st.columns([2.5, 1, 1])
+        c1, c极速赛车开奖直播2, c3 = st.columns([2.5, 1, 1])
         cliente = c1.text_input("Cliente / Razón Social", placeholder="Nombre completo o razón social del cliente")
         fecha_v = c2.date_input("Fecha de Emisión")
         iva_p = c3.number_input("IVA %", value=16.0, min_value=0.0, max_value=100.0)
@@ -349,7 +566,7 @@ else:
             st.markdown("###### Agregar Equipos de Seguridad")
             col_d, col_c, col_p = st.columns([3, 1, 1])
             desc_e = col_d.text_input("Descripción del Producto", placeholder="Ej. Kit 4 Cámaras 1080p", key="desc_equipo")
-            cant_e = col_c.number_input("Cantidad", min_value=1.0, value=1.0, key="c_eq")
+            cant_e = col_c.number_input("Cantidad", min_value=1.极速赛车开奖直播0, value=1.0, key="c_eq")
             prec_e = col_p.number_input("Precio Unitario", min_value=0.0, key="p_eq")
             
             if st.button("➕ Agregar Equipo", key="add_equipo"):
@@ -379,7 +596,7 @@ else:
             
             # Crear DataFrame para mejor visualización
             carrito_df = pd.DataFrame(st.session_state.carrito)
-            carrito_df['Subtotal'] = carrito_df['cant'] * carrito_df['prec']
+            carrito_df['Subtotal'] = carrito_df['cant'] * carrito_df['极速赛车开奖直播prec']
             carrito_df.index = range(1, len(carrito_df) + 1)
             
             # Formatear columnas para mejor visualización
@@ -401,11 +618,11 @@ else:
             
             col1, col2, col3 = st.columns(3)
             col1.metric("SUBTOTAL", f"${subt:,.2f} MXN")
-            col2.metric("IVA", f"${iva:,.2f} MXN")
+            col2.metric("IVA", f"${iva:,.2极速赛车开奖直播f} MXN")
             col3.metric("TOTAL", f"${total_v:,.2f} MXN", delta_color="off")
 
             # Botón de registro
-            if st.button("✅ REGISTRAR Y GENERAR FOLIO", type="primary", use_container_width=True):
+            if st.button("✅ REGISTRAR Y GENERAR FOLIO", type="primary", use_container_width极速赛车开奖直播=True):
                 if cliente:
                     with st.spinner("Procesando venta..."):
                         folio = generar_folio()
@@ -448,32 +665,52 @@ else:
             for index, row in ventas_list.iterrows():
                 with st.expander(f"{row['folio']} | {row['cliente']} | ${row['total']:,.2f} | {row['fecha']}"):
                     conn = sqlite3.connect(DB_NAME)
-                    items = pd.read_sql_query("SELECT descripcion, cant, precio, subtotal FROM detalles WHERE venta_id=?", 
-                                            conn, params=(row['id'],))
+                    detalles = pd.read_sql_query("SELECT descripcion as desc, cant, precio as prec FROM detalles WHERE venta_id=?", 
+                                                conn, params=(row['id'],))
                     conn.close()
                     
+                    # Convertir a lista de diccionarios para el PDF
+                    items_list = detalles.to_dict('records')
+                    
                     # Formatear la tabla para mejor visualización
-                    items_display = items.copy()
-                    items_display['precio'] = items_display['precio'].apply(lambda x: f"${x:,.2f}")
-                    items_display['subtotal'] = items_display['subtotal'].apply(lambda x: f"${x:,.2f}")
-                    items_display = items_display.rename(columns={
-                        'descripcion': 'Descripción', 
+                    detalles_display = detalles.copy()
+                    detalles_display['prec'] = detalles_display['prec'].apply(lambda x: f"${x:,.2f}")
+                    detalles_display['subtotal'] = detalles_display['cant'] * detalles_display['prec'].str.replace('$', '').str.replace(',', '').astype(float)
+                    detalles_display['subtotal'] = detalles_display['subtotal'].apply(lambda x: f"${x:,.2f}")
+                    detalles_display = detalles_display.rename(columns={
+                        'desc': 'Descripción', 
                         'cant': 'Cantidad', 
-                        'precio': 'Precio Unitario',
-                        'subtotal': 'Subtotal'
+                        'prec': 'Precio Unitario'
                     })
                     
-                    st.table(items_display)
+                    st.table(detalles_display)
                     
                     # Botones de acción
                     col1, col2 = st.columns(2)
                     with col1:
-                        if st.button("📄 Generar PDF", key=f"pdf_{row['id']}"):
-                            # Lógica para generar PDF (similar a la original)
-                            st.info("Generando PDF...")
+                        # Generar PDF
+                        pdf_bytes = generar_pdf(
+                            row['id'], 
+                            row['cliente'], 
+                            row['folio'], 
+                            row['fecha'], 
+                            row['vendedor'], 
+                            items_list, 
+                            row['iva_porc']
+                        )
+                        
+                        st.download_button(
+                            label="📄 Descargar PDF",
+                            data=pdf_bytes,
+                            file_name=f"Comprobante_{row['folio']}.pdf",
+                            mime="application/pdf",
+                            key=f"pdf_{row['id']}"
+                        )
+                    
                     with col2:
-                        if st.button("📊 Ver Detalles", key=f"det_{row['id']}"):
-                            st.info("Mostrando detalles completos...")
+                        if st.button("📊 Ver Detalles Completos", key=f"det_{row['id']}"):
+                            st.info(f"Mostrando detalles completos para el folio {row['folio']}")
+                            # Aquí podrías expandir la visualización de detalles si es necesario
                 
     with tab3:
         if st.session_state.role == "Admin":
@@ -483,7 +720,7 @@ else:
                 SELECT v.folio, v.fecha, v.cliente, v.vendedor, d.descripcion, d.cant, d.precio, d.subtotal
                 FROM detalles d JOIN ventas v ON d.venta_id = v.id ORDER BY v.id DESC
             """
-            df_global = pd.read_sql_query(query_global, conn)
+            df_global = pd.read极速赛车开奖直播_sql_query(query_global, conn)
             conn.close()
             
             if not df_global.empty:
@@ -506,7 +743,7 @@ else:
                     df_global.to_excel(writer, index=False, sheet_name='Reporte_Master')
                 
                 st.download_button("💾 Descargar Reporte Maestro (Excel)", buffer.getvalue(), 
-                                 f"Reporte_Hazard_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx", 
+                                 f"Reporte_Hazard_{datetime.now().strftime('%Y%m%d_%H%M')}.极速赛车开奖直播xlsx", 
                                  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                  use_container_width=True)
             else:
