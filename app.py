@@ -2,98 +2,167 @@ import streamlit as st
 from fpdf import FPDF
 import io
 from datetime import datetime
+import sqlite3
+import os
 
-# Configuración de página
-st.set_page_config(page_title="Hazard Corp - Notas", page_icon="📝")
+# --- CONFIGURACIÓN DE PÁGINA ---
+st.set_page_config(page_title="Hazard Corp - Elite System", layout="wide")
 
-# Inicialización de estados
-if 'historial' not in st.session_state:
-    st.session_state.historial = []
+# --- INICIALIZACIÓN DE BASE DE DATOS (SQLite) ---
+def init_db():
+    conn = sqlite3.connect('notas.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS notas 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  cliente TEXT, fecha TEXT, concepto TEXT, 
+                  cantidad REAL, precio REAL, iva REAL, total REAL)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+# --- ESTADO DE CONFIGURACIÓN ---
 if 'config' not in st.session_state:
     st.session_state.config = {"nombre": "Hazard Corp", "logo": None}
 
-# --- SIDEBAR ---
+# --- SIDEBAR: BRANDING ---
 with st.sidebar:
-    st.header("⚙️ Configuración")
-    st.session_state.config["nombre"] = st.text_input("Nombre del negocio", value=st.session_state.config["nombre"])
-    logo_file = st.file_uploader("Cargar logo (PNG/JPG)", type=["png", "jpg", "jpeg"])
+    st.header("🏢 Branding Elite")
+    st.session_state.config["nombre"] = st.text_input("Nombre del Negocio", value=st.session_state.config["nombre"])
+    logo_file = st.file_uploader("Cargar Logo (Alta Resolución)", type=["png", "jpg", "jpeg"])
     if logo_file:
         st.session_state.config["logo"] = logo_file.getvalue()
-        st.success("✅ Logo guardado")
+        st.success("✅ Logo vinculado al sistema")
 
-# --- FUNCIÓN PDF ---
-def generar_pdf(nota):
+# --- FUNCIÓN PDF ESTILO COTIZACIÓN ---
+def generar_pdf_perro(nota):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(0, 10, st.session_state.config["nombre"], ln=True, align='C')
-    pdf.set_font("Arial", '', 12)
-    pdf.cell(0, 10, f"Cliente: {nota['cliente']}", ln=True)
-    pdf.cell(0, 10, f"Fecha: {nota['fecha']}", ln=True)
+    
+    # Header con Logo
+    if st.session_state.config["logo"]:
+        with open("temp_logo.png", "wb") as f:
+            f.write(st.session_state.config["logo"])
+        pdf.image("temp_logo.png", 10, 8, 40)
+    
+    # Datos del Negocio (Derecha)
+    pdf.set_font("Arial", 'B', 20)
+    pdf.set_text_color(40, 40, 40)
+    pdf.cell(0, 10, st.session_state.config["nombre"].upper(), ln=True, align='R')
+    pdf.set_font("Arial", 'I', 10)
+    pdf.cell(0, 5, "COTIZACIÓN PROFESIONAL", ln=True, align='R')
+    pdf.ln(20)
+    
+    # Info Cliente y Nota
+    pdf.set_fill_color(240, 240, 240)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, f" CLIENTE: {nota['cliente']}", ln=True, fill=True)
+    pdf.set_font("Arial", '', 10)
+    pdf.cell(100, 8, f"Fecha de emisión: {nota['fecha']}", ln=False)
+    pdf.cell(0, 8, f"Folio: #00{nota['id']}", ln=True, align='R')
     pdf.ln(10)
     
-    # Encabezados de tabla
-    pdf.set_fill_color(230, 230, 230)
-    pdf.cell(80, 10, "Concepto", 1, 0, 'C', True)
-    pdf.cell(30, 10, "Cant.", 1, 0, 'C', True)
-    pdf.cell(40, 10, "Precio", 1, 0, 'C', True)
-    pdf.cell(40, 10, "Total", 1, 1, 'C', True)
+    # Tabla de Contenido
+    pdf.set_draw_color(50, 50, 50)
+    pdf.set_fill_color(50, 50, 50)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(100, 10, " DESCRIPCIÓN DEL SERVICIO / PRODUCTO", 1, 0, 'L', True)
+    pdf.cell(25, 10, "CANT.", 1, 0, 'C', True)
+    pdf.cell(30, 10, "P. UNIT", 1, 0, 'C', True)
+    pdf.cell(35, 10, "SUBTOTAL", 1, 1, 'C', True)
     
-    for s in nota['servicios']:
-        pdf.cell(80, 10, str(s['concepto']), 1)
-        pdf.cell(30, 10, str(s['cantidad']), 1)
-        pdf.cell(40, 10, f"${s['precio']:,.2f}", 1)
-        pdf.cell(40, 10, f"${(s['cantidad'] * s['precio']):,.2f}", 1, 1)
+    # Cuerpo de Tabla
+    pdf.set_text_color(0, 0, 0)
+    pdf.set_font("Arial", '', 11)
+    subtotal_base = nota['cantidad'] * nota['precio']
+    pdf.cell(100, 12, f" {nota['concepto']}", 1)
+    pdf.cell(25, 12, f"{nota['cantidad']}", 1, 0, 'C')
+    pdf.cell(30, 12, f"${nota['precio']:,.2f}", 1, 0, 'C')
+    pdf.cell(35, 12, f"${subtotal_base:,.2f}", 1, 1, 'C')
     
+    # Totales
     pdf.ln(5)
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(155, 8, "SUBTOTAL:", 0, 0, 'R')
+    pdf.cell(35, 8, f"${subtotal_base:,.2f}", 0, 1, 'C')
+    pdf.cell(155, 8, f"IVA ({nota['iva']}%):", 0, 0, 'R')
+    monto_iva = subtotal_base * (nota['iva']/100)
+    pdf.cell(35, 8, f"${monto_iva:,.2f}", 0, 1, 'C')
+    
     pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, f"TOTAL: ${nota['total']:,.2f}", ln=True, align='R')
+    pdf.set_text_color(200, 0, 0)
+    pdf.cell(155, 12, "TOTAL NETO:", 0, 0, 'R')
+    pdf.cell(35, 12, f"${nota['total']:,.2f}", 0, 1, 'C')
+    
     return pdf.output(dest='S').encode('latin-1')
 
-# --- INTERFAZ ---
-st.title(f"Negocio: {st.session_state.config['nombre']}")
+# --- INTERFAZ DE GENERACIÓN ---
+st.title("💎 Hazard Corp: Sistema de Cotizaciones")
 
-with st.form("nueva_nota", clear_on_submit=True):
-    st.subheader("📝 Nueva Nota")
-    col1, col2 = st.columns(2)
-    cliente = col1.text_input("Nombre del cliente *")
-    fecha = col2.date_input("Fecha", value=datetime.now())
+with st.form("form_perro", clear_on_submit=True):
+    c1, c2 = st.columns(2)
+    cliente = c1.text_input("👤 Nombre del Cliente")
+    fecha_dt = c2.date_input("📅 Fecha", value=datetime.now())
     
-    concepto = st.text_input("Concepto")
-    c1, c2, c3 = st.columns(3)
-    cantidad = c1.number_input("Cantidad", min_value=1, step=1, value=1)
-    precio = c2.number_input("Precio Unitario", min_value=0.0, step=0.01, format="%.2f")
-    iva = c3.slider("IVA (%)", 0, 16, 16)
+    st.markdown("---")
+    concepto = st.text_area("🛠️ Concepto o Descripción del Servicio")
     
-    if st.form_submit_button("Guardar Nota"):
-        if cliente and concepto:
-            subtotal = cantidad * precio
-            total = subtotal * (1 + (iva/100))
+    col_a, col_b, col_c = st.columns([1, 1, 2])
+    cantidad = col_a.number_input("Cantidad", min_value=0.1, value=1.0)
+    precio = col_b.number_input("Precio Unitario", min_value=0.0)
+    
+    # LÓGICA DE IVA AUTOMÁTICO/MANUAL
+    tipo_iva = col_c.radio("Tipo de IVA", ["Automático (16%)", "Manual"], horizontal=True)
+    if tipo_iva == "Automático (16%)":
+        iva_val = 16.0
+    else:
+        iva_val = col_c.number_input("IVA Personalizado %", min_value=0.0, max_value=100.0, value=0.0)
+    
+    if st.form_submit_button("🔥 GENERAR Y GUARDAR EN DB"):
+        if cliente and concepto and precio > 0:
+            total_calc = (cantidad * precio) * (1 + (iva_val/100))
             
-            # Guardamos los datos asegurando que son números (float/int)
-            st.session_state.historial.append({
-                "id": len(st.session_state.historial) + 1,
-                "cliente": cliente,
-                "fecha": fecha.strftime("%d/%m/%Y"),
-                "servicios": [{"cantidad": int(cantidad), "concepto": concepto, "precio": float(precio)}],
-                "total": float(total)
-            })
-            st.success("✅ Nota guardada")
+            # Guardar en SQLite
+            conn = sqlite3.connect('notas.db')
+            c = conn.cursor()
+            c.execute("INSERT INTO notas (cliente, fecha, concepto, cantidad, precio, iva, total) VALUES (?,?,?,?,?,?,?)",
+                      (cliente, fecha_dt.strftime("%Y-%m-%d"), concepto, cantidad, precio, iva_val, total_calc))
+            conn.commit()
+            conn.close()
+            st.success("🚀 Nota guardada en la base de datos y lista para descargar.")
         else:
-            st.error("⚠️ Llena los campos obligatorios")
+            st.warning("Faltan datos críticos para la cotización.")
 
-# --- HISTORIAL (SIN ERRORES) ---
-st.header("📋 Historial de Notas")
+# --- SISTEMA DE CONTROL (HISTORIAL DESDE DB) ---
+st.header("📊 Sistema de Control (Base de Datos)")
 
-for nota in reversed(st.session_state.historial):
-    with st.expander(f"Nota #{nota['id']} - {nota['cliente']} - ${nota.get('total', 0):,.2f}"):
-        # El truco está en usar .get() para evitar el TypeError
-        for svc in nota.get('servicios', []):
-            c = svc.get('cantidad', 0)
-            p = svc.get('precio', 0.0)
-            con = svc.get('concepto', 'Sin concepto')
-            # Multiplicación segura
-            st.write(f"• {c}x {con} — **${(c * p):,.2f}**")
+conn = sqlite3.connect('notas.db')
+df = sqlite3.connect('notas.db')
+# Consultar todas las notas
+c = conn.cursor()
+c.execute("SELECT * FROM notas ORDER BY id DESC")
+records = c.fetchall()
+conn.close()
+
+for r in records:
+    # r[0]=id, r[1]=cliente, r[2]=fecha, r[3]=concepto, r[4]=cantidad, r[5]=precio, r[6]=iva, r[7]=total
+    with st.expander(f"FOLIO #00{r[0]} | {r[1]} | ${r[7]:,.2f}"):
+        st.write(f"**Descripción:** {r[3]}")
+        st.write(f"**Detalle:** {r[4]} unidad(es) x ${r[5]:,.2f} (+ {r[6]}% IVA)")
         
-        pdf_bytes = generar_pdf(nota)
-        st.download_button("📥 Descargar PDF", pdf_bytes, f"Nota_{nota['id']}.pdf", "application/pdf", key=f"btn_{nota['id']}")
+        # Generar PDF desde los datos de la DB
+        datos_nota = {
+            "id": r[0], "cliente": r[1], "fecha": r[2], 
+            "concepto": r[3], "cantidad": r[4], "precio": r[5], 
+            "iva": r[6], "total": r[7]
+        }
+        
+        pdf_bytes = generar_pdf_perro(datos_nota)
+        st.download_button(
+            label="📥 Descargar Cotización PDF",
+            data=pdf_bytes,
+            file_name=f"Cotizacion_{r[0]}_{r[1]}.pdf",
+            mime="application/pdf",
+            key=f"btn_{r[0]}"
+        )
