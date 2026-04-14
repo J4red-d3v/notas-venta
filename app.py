@@ -5,195 +5,198 @@ from datetime import datetime
 import sqlite3
 import random
 import string
+import os
 
-# --- CONFIGURACIÓN DE PÁGINA Y ESTILO ---
-st.set_page_config(page_title="Hazard Corp | Elite Sales System", layout="wide", page_icon="💎")
+# --- 1. CONFIGURACIÓN DE PÁGINA Y ESTILO ---
+st.set_page_config(page_title="Hazard Corp | Sistema Pro", layout="wide", page_icon="🚀")
 
-# CSS para inyectar un diseño moderno
+# Estilo para que se vea más profesional
 st.markdown("""
     <style>
-    .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #007bff; color: white; }
-    .stDownloadButton>button { background-color: #28a745 !important; color: white !important; }
-    div[data-testid="stMetricValue"] { font-size: 24px; color: #1e3a8a; }
-    .product-row { padding: 10px; border-bottom: 1px solid #dee2e6; }
+    .main { background-color: #f5f7f9; }
+    .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; }
+    .stDownloadButton>button { background-color: #059669 !important; color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- INICIALIZACIÓN DE BASE DE DATOS (V3) ---
+# --- 2. BASE DE DATOS (NUEVA VERSIÓN V5) ---
 def init_db():
-    conn = sqlite3.connect('hazard_elite_v3.db')
+    # Cambiamos el nombre del archivo para forzar una estructura limpia y sin errores
+    conn = sqlite3.connect('hazard_v5_final.db')
     c = conn.cursor()
+    # Tabla Maestra: Datos generales de la venta
     c.execute('''CREATE TABLE IF NOT EXISTS ventas 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, folio TEXT, cliente TEXT, fecha TEXT, iva_porc REAL, total REAL)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS items 
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT, venta_id INTEGER, descripcion TEXT, cant REAL, precio REAL, subtotal REAL)''')
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  folio TEXT, 
+                  cliente TEXT, 
+                  fecha TEXT, 
+                  iva_porc REAL, 
+                  total REAL)''')
+    # Tabla de Detalles: Cada producto por separado
+    c.execute('''CREATE TABLE IF NOT EXISTS detalles 
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                  venta_id INTEGER, 
+                  descripcion TEXT, 
+                  cant REAL, 
+                  precio REAL, 
+                  subtotal REAL,
+                  FOREIGN KEY(venta_id) REFERENCES ventas(id))''')
     conn.commit()
     conn.close()
 
 def generar_folio():
-    return f"HZ-{datetime.now().year}-{''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(5))}"
+    return f"HZ-{''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))}"
 
 init_db()
 
-# --- GESTIÓN DE ESTADO (CARRITO) ---
+# --- 3. ESTADO DE LA APLICACIÓN (CARRITO) ---
 if 'carrito' not in st.session_state:
     st.session_state.carrito = []
 
-# --- SIDEBAR: IDENTIDAD CORPORATIVA ---
+# --- 4. CONFIGURACIÓN DE EMPRESA (SIDEBAR) ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3222/3222800.png", width=100)
-    st.title("Admin Panel")
-    nombre_negocio = st.text_input("Empresa", value="Hazard Corp")
-    logo_file = st.file_uploader("Actualizar Logo", type=["png", "jpg", "jpeg"])
-    logo_bytes = logo_file.getvalue() if logo_file else None
-    st.divider()
-    if st.button("🗑️ Vaciar Formulario"):
+    st.title("⚙️ Configuración")
+    nombre_empresa = st.text_input("Nombre del Negocio", value="Hazard Corp")
+    logo_file = st.file_uploader("Cargar Logo", type=["png", "jpg", "jpeg"])
+    logo_data = logo_file.getvalue() if logo_file else None
+    
+    if st.button("🗑️ Limpiar Formulario"):
         st.session_state.carrito = []
         st.rerun()
 
-# --- MOTOR DE GENERACIÓN DE PDF ---
-class FacturaPDF(FPDF):
+# --- 5. GENERADOR DE PDF ---
+class PDF(FPDF):
     def header(self):
-        if logo_bytes:
-            with open("temp_logo.png", "wb") as f: f.write(logo_bytes)
+        if logo_data:
+            with open("temp_logo.png", "wb") as f: f.write(logo_data)
             self.image("temp_logo.png", 10, 8, 35)
-        self.set_font('Arial', 'B', 15)
-        self.cell(80)
-        self.cell(110, 10, nombre_negocio.upper(), 0, 0, 'R')
+        self.set_font('Arial', 'B', 16)
+        self.cell(0, 10, nombre_empresa.upper(), ln=True, align='R')
+        self.set_font('Arial', '', 10)
+        self.cell(0, 5, "DOCUMENTO DE VENTA", ln=True, align='R')
         self.ln(20)
 
-    def footer(self):
-        self.set_y(-15)
-        self.set_font('Arial', 'I', 8)
-        self.cell(0, 10, f'Página {self.page_no()} - Documento generado por {nombre_negocio}', 0, 0, 'C')
-
-def exportar_pdf(info, productos):
-    pdf = FacturaPDF()
+def exportar_pdf(info_venta, items):
+    pdf = PDF()
     pdf.add_page()
     
-    # Info Venta
+    # Datos de la Venta
     pdf.set_font('Arial', 'B', 12)
-    pdf.cell(100, 10, f"CLIENTE: {info['cliente']}", 0, 0)
+    pdf.cell(100, 10, f"CLIENTE: {info_venta['cliente']}")
     pdf.set_font('Arial', '', 10)
-    pdf.cell(0, 10, f"FECHA: {info['fecha']}", 0, 1, 'R')
-    pdf.cell(100, 10, f"FOLIO DE RASTREO: {info['folio']}", 0, 1)
+    pdf.cell(0, 10, f"FECHA: {info_venta['fecha']}", align='R', ln=True)
+    pdf.cell(0, 10, f"FOLIO: {info_venta['folio']}", align='R', ln=True)
     pdf.ln(5)
 
-    # Tabla Header
-    pdf.set_fill_color(30, 58, 138)
+    # Tabla de productos
+    pdf.set_fill_color(0, 0, 0)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Arial', 'B', 10)
-    pdf.cell(90, 10, ' DESCRIPCION', 1, 0, 'L', True)
-    pdf.cell(20, 10, 'CANT', 1, 0, 'C', True)
-    pdf.cell(40, 10, 'PRECIO U.', 1, 0, 'C', True)
-    pdf.cell(40, 10, 'TOTAL', 1, 1, 'C', True)
+    pdf.cell(90, 10, " DESCRIPCION", 1, 0, 'L', True)
+    pdf.cell(20, 10, "CANT", 1, 0, 'C', True)
+    pdf.cell(40, 10, "PRECIO U.", 1, 0, 'C', True)
+    pdf.cell(40, 10, "TOTAL", 1, 1, 'C', True)
 
-    # Tabla Body
     pdf.set_text_color(0, 0, 0)
     pdf.set_font('Arial', '', 10)
-    subtotal_acumulado = 0
-    for p in productos:
-        pdf.cell(90, 10, f" {p['desc']}", 1)
-        pdf.cell(20, 10, f"{p['cant']}", 1, 0, 'C')
-        pdf.cell(40, 10, f"${p['prec']:,.2f}", 1, 0, 'C')
-        linea = p['cant'] * p['prec']
+    subtotal_gral = 0
+    for it in items:
+        pdf.cell(90, 10, f" {it['desc']}", 1)
+        pdf.cell(20, 10, f"{it['cant']}", 1, 0, 'C')
+        pdf.cell(40, 10, f"${it['prec']:,.2f}", 1, 0, 'C')
+        linea = it['cant'] * it['prec']
         pdf.cell(40, 10, f"${linea:,.2f}", 1, 1, 'C')
-        subtotal_acumulado += linea
+        subtotal_gral += linea
 
-    # Desglose Final
+    # Cálculos Finales
     pdf.ln(5)
-    pdf.set_font('Arial', 'B', 10)
-    pdf.cell(150, 8, "SUBTOTAL:", 0, 0, 'R')
-    pdf.cell(40, 8, f"${subtotal_acumulado:,.2f}", 0, 1, 'R')
+    pdf.set_font('Arial', 'B', 12)
+    pdf.cell(150, 10, "SUBTOTAL:", 0, 0, 'R')
+    pdf.cell(40, 10, f"${subtotal_gral:,.2f}", 0, 1, 'R')
     
-    iva_monto = subtotal_acumulado * (info['iva'] / 100)
-    pdf.cell(150, 8, f"IVA ({info['iva']}%):", 0, 0, 'R')
-    pdf.cell(40, 8, f"${iva_monto:,.2f}", 0, 1, 'R')
+    iva_monto = subtotal_gral * (info_venta['iva'] / 100)
+    pdf.cell(150, 10, f"IVA ({info_venta['iva']}%):", 0, 0, 'R')
+    pdf.cell(40, 10, f"${iva_monto:,.2f}", 0, 1, 'R')
     
+    pdf.set_text_color(20, 60, 180)
     pdf.set_font('Arial', 'B', 14)
-    pdf.set_text_color(20, 50, 100)
-    pdf.cell(150, 12, "TOTAL NETO A PAGAR:", 0, 0, 'R')
-    pdf.cell(40, 12, f"${subtotal_acumulado + iva_monto:,.2f}", 0, 1, 'R')
+    pdf.cell(150, 15, "TOTAL NETO:", 0, 0, 'R')
+    pdf.cell(40, 15, f"${subtotal_gral + iva_monto:,.2f}", 0, 1, 'R')
     
     return pdf.output(dest='S').encode('latin-1')
 
-# --- INTERFAZ PRINCIPAL ---
-st.title("📦 Sistema de Facturación Elite")
-t1, t2 = st.tabs(["🆕 Crear Nota de Venta", "📊 Historial y Rastreo"])
+# --- 6. INTERFAZ ---
+st.title(f"🚀 {nombre_empresa} | Terminal de Ventas")
 
-with t1:
+tab1, tab2 = st.tabs(["🛒 Generar Venta", "📂 Panel de Rastreo"])
+
+with tab1:
     with st.container(border=True):
-        col_cli, col_fec, col_iva = st.columns([2, 1, 1])
-        cli = col_cli.text_input("Nombre del Cliente")
-        fec = col_fec.date_input("Fecha de Venta")
-        iva_p = col_iva.number_input("IVA %", min_value=0.0, value=16.0)
+        c1, c2, c3 = st.columns([2, 1, 1])
+        cliente = c1.text_input("Nombre del Cliente")
+        fecha_v = c2.date_input("Fecha")
+        iva_p = c3.number_input("IVA % (Manual)", min_value=0.0, value=0.0)
 
-    st.subheader("Lista de Productos")
-    with st.expander("➕ Agregar Item", expanded=True):
-        c_desc, c_cant, c_prec = st.columns([3, 1, 1])
-        item_desc = c_desc.text_input("Descripción del Producto")
-        item_cant = c_cant.number_input("Cantidad", min_value=1.0, value=1.0)
-        item_prec = c_prec.number_input("Precio Unitario", min_value=0.0, value=0.0)
+    st.subheader("Agregar Items")
+    with st.expander("Añadir producto/servicio", expanded=True):
+        col_d, col_c, col_p = st.columns([3, 1, 1])
+        desc = col_d.text_input("Descripción")
+        cant = col_c.number_input("Cant.", min_value=0.1, value=1.0)
+        prec = col_p.number_input("Precio Unitario", min_value=0.0)
         
-        if st.button("Añadir a la Factura"):
-            if item_desc and item_prec > 0:
-                st.session_state.carrito.append({
-                    "desc": item_desc, "cant": item_cant, "prec": item_prec
-                })
+        if st.button("➕ Agregar a la Lista"):
+            if desc and prec > 0:
+                st.session_state.carrito.append({"desc": desc, "cant": cant, "prec": prec})
                 st.rerun()
 
     if st.session_state.carrito:
-        # Mostrar tabla previa
-        st.markdown("### Resumen de la Venta")
-        sub_total = 0
-        for i, p in enumerate(st.session_state.carrito):
-            st.markdown(f"**{int(p['cant'])}x** {p['desc']} — ${p['prec']*p['cant']:,.2f}")
-            sub_total += p['prec']*p['cant']
+        st.markdown("### Resumen de Venta")
+        st.table(st.session_state.carrito)
         
-        st.divider()
-        col_t1, col_t2 = st.columns(2)
-        total_final = sub_total * (1 + (iva_p/100))
-        col_t1.metric("Subtotal", f"${sub_total:,.2f}")
-        col_t2.metric("Total (c/ IVA)", f"${total_final:,.2f}")
+        sub = sum(p['cant'] * p['prec'] for p in st.session_state.carrito)
+        total_v = sub * (1 + (iva_p/100))
+        
+        st.metric("TOTAL A COBRAR", f"${total_v:,.2f}")
 
-        if st.button("🚀 REGISTRAR VENTA Y GENERAR PDF"):
-            if cli:
+        if st.button("🔥 REGISTRAR VENTA FINAL"):
+            if cliente:
                 folio = generar_folio()
-                conn = sqlite3.connect('hazard_elite_v3.db')
+                conn = sqlite3.connect('hazard_v5_final.db')
                 cur = conn.cursor()
+                # Guardar Venta
                 cur.execute("INSERT INTO ventas (folio, cliente, fecha, iva_porc, total) VALUES (?,?,?,?,?)",
-                          (folio, cli, fec.strftime("%Y-%m-%d"), iva_p, total_final))
+                          (folio, cliente, fecha_v.strftime("%Y-%m-%d"), iva_p, total_v))
                 v_id = cur.lastrowid
+                # Guardar Detalles
                 for p in st.session_state.carrito:
                     cur.execute("INSERT INTO detalles (venta_id, descripcion, cant, precio, subtotal) VALUES (?,?,?,?,?)",
                               (v_id, p['desc'], p['cant'], p['prec'], p['cant']*p['prec']))
                 conn.commit()
                 conn.close()
                 st.session_state.carrito = []
-                st.success(f"Venta Guardada con Folio: {folio}")
+                st.success(f"Venta Guardada con éxito. Folio: {folio}")
                 st.balloons()
             else:
-                st.error("Error: Se requiere el nombre del cliente.")
+                st.error("Por favor, ingresa el nombre del cliente.")
 
-with t2:
-    search = st.text_input("🔍 Buscar por Folio o Nombre de Cliente")
-    conn = sqlite3.connect('hazard_elite_v3.db')
+with tab2:
+    st.subheader("Buscador de Folios")
+    busqueda = st.text_input("Buscar por Folio o Cliente")
+    
+    conn = sqlite3.connect('hazard_v5_final.db')
     cur = conn.cursor()
-    query = "SELECT * FROM ventas WHERE folio LIKE ? OR cliente LIKE ? ORDER BY id DESC"
-    cur.execute(query, (f'%{search}%', f'%{search}%'))
+    cur.execute("SELECT * FROM ventas WHERE folio LIKE ? OR cliente LIKE ? ORDER BY id DESC", (f'%{busqueda}%', f'%{busqueda}%'))
     ventas = cur.fetchall()
     
     for v in ventas:
-        with st.expander(f"🧾 Folio: {v[1]} | Cliente: {v[2]} | Total: ${v[5]:,.2f}"):
+        with st.expander(f"FOLIO: {v[1]} | {v[2]} | Total: ${v[5]:,.2f}"):
             cur.execute("SELECT descripcion, cant, precio FROM detalles WHERE venta_id = ?", (v[0],))
             items_db = cur.fetchall()
-            prods_pdf = []
-            for it in items_db:
-                st.write(f"- {it[1]}x {it[0]} — ${it[2]:,.2f}")
-                prods_pdf.append({"desc": it[0], "cant": it[1], "prec": it[2]})
+            listado_pdf = []
+            for item in items_db:
+                st.write(f"- {item[1]}x {item[0]} | ${item[2]:,.2f}")
+                listado_pdf.append({"desc": item[0], "cant": item[1], "prec": item[2]})
             
-            # Botón de descarga para historial
-            pdf_data = exportar_pdf({"folio": v[1], "cliente": v[2], "fecha": v[3], "iva": v[4]}, prods_pdf)
-            st.download_button(f"📥 Descargar PDF {v[1]}", pdf_data, f"Factura_{v[1]}.pdf", "application/pdf", key=f"hist_{v[1]}")
+            pdf_bytes = exportar_pdf({"folio": v[1], "cliente": v[2], "fecha": v[3], "iva": v[4]}, listado_pdf)
+            st.download_button(f"📥 Descargar Nota {v[1]}", pdf_bytes, f"Nota_{v[1]}.pdf", "application/pdf", key=f"dl_{v[1]}")
     conn.close()
