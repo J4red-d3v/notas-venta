@@ -83,6 +83,57 @@ st.markdown("""
 
     /* Sidebar mejorado */
     .css-1d391kg { background-color: #161B22 !important; }
+
+    /* Centrar contenido en login sin columnas */
+    .login-wrapper .stImage {
+        display: flex !important;
+        justify-content: center !important;
+    }
+
+    .login-wrapper .stImage > div {
+        background: transparent !important;
+        padding: 0 !important;
+    }
+
+    .login-wrapper .stImage img {
+        display: block !important;
+        margin: 0 auto !important;
+        background: transparent !important;
+    }
+
+    /* Inputs centrados */
+    .login-wrapper .stTextInput,
+    .login-wrapper .stPassword {
+        background: transparent !important;
+    }
+
+    .login-wrapper .stTextInput > div,
+    .login-wrapper .stPassword > div {
+        background-color: #0D1117 !important;
+        border: 1px solid #30363D !important;
+        border-radius: 8px !important;
+    }
+
+    .login-wrapper .stTextInput input,
+    .login-wrapper .stPassword input {
+        background-color: transparent !important;
+        border: none !important;
+        color: #E6EDF3 !important;
+    }
+
+    /* Botón centrado */
+    .login-wrapper .stButton {
+        text-align: center !important;
+    }
+
+    .login-wrapper .stButton > button {
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+        color: white !important;
+        border: none !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        width: 100% !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -138,19 +189,19 @@ if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 def login_ui():
+    # Espaciado superior con CSS en lugar de contenedores
     st.markdown('<div class="login-wrapper">', unsafe_allow_html=True)
 
-    # Logo centrado
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.image("Hazard.png", use_container_width=True)
+    # Logo sin columnas - directamente centrado
+    st.image("Hazard.png", width=280)
 
     st.markdown('<p class="login-title">🔐 Acceso Hazard Corp</p>', unsafe_allow_html=True)
 
     user = st.text_input("Usuario", placeholder="Ingresa tu usuario")
     pw = st.text_input("Contraseña", type="password", placeholder="Ingresa tu contraseña")
 
-    if st.button("Ingresar al Sistema", use_container_width=True):
+    # Botón de login
+    if st.button("Ingresar al Sistema"):
         conn = sqlite3.connect(DB_NAME)
         c = conn.cursor()
         c.execute("SELECT password, role FROM usuarios WHERE username=?", (user,))
